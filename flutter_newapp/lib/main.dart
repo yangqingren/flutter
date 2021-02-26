@@ -3,10 +3,26 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
+import 'package:provider/provider.dart';
 
-void main() => runApp(MyApp());
+// void main() => runApp(MyApp());
+
+void main() {
+  CategoryState categoryState = CategoryState();
+  return runApp(
+    MultiProvider(
+      providers: [ChangeNotifierProvider(create: (context) => categoryState)],
+      child: MyApp(categoryState),
+    ),
+  );
+}
 
 class MyApp extends StatelessWidget {
+  CategoryState categoryState;
+  MyApp(CategoryState categoryState) {
+    this.categoryState = categoryState;
+  }
+
   @override
   Widget build(BuildContext context) {
     gethttp() async {
@@ -29,6 +45,25 @@ class MyApp extends StatelessWidget {
       print('sada' + data.toString());
     });
 
+    getStore(SettingModel model) async {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      return await prefs.getBool(model.id);
+    }
+
+    for (List list in categoryState.dataSource) {
+      for (var model in list) {
+        if (model is SettingModel) {
+          Future<bool> store = getStore(model);
+          store.then((bool isOn) {
+            bool on = isOn != null ? isOn : false;
+            print('oooooo' + on.toString());
+            Provider.of<CategoryState>(context, listen: false)
+                .changeIsOn(model, on);
+          });
+        }
+      }
+    }
+
     return MaterialApp(
       home: Scaffold(
         body: Center(
@@ -36,6 +71,32 @@ class MyApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class CategoryState extends ChangeNotifier {
+  List<List> _dataSource = [
+    [
+      HeaderModel(),
+      SectionModel(),
+      SettingModel('icon_setting_date.png', '照片日期', null, 'kDate'),
+      SettingModel('icon_setting_save.png', '默认保存到本地', null, 'kSave'),
+      SettingModel('icon_setting_quick.png', '快速换卷', '开启后可直接切换胶卷', 'kQuick'),
+    ],
+    [
+      SectionModel(),
+      SettingModel('icon_setting_about.png', '关于', null, 'kAbout'),
+      SettingModel('icon_setting_feedback.png', '意见反馈', null, 'kFeedbook'),
+      SectionModel(),
+      FootModel(),
+    ],
+  ];
+
+  get dataSource => _dataSource;
+
+  void changeIsOn(SettingModel model, bool isOn) {
+    model.isOn = isOn;
+    notifyListeners();
   }
 }
 
@@ -68,34 +129,36 @@ class FootModel {
 
 class SettingList extends StatefulWidget {
   @override
-  List<List> dataSource = [
-    [
-      HeaderModel(),
-      SectionModel(),
-      SettingModel('icon_setting_date.png', '照片日期', null, 'kDate'),
-      SettingModel('icon_setting_save.png', '默认保存到本地', null, 'kSave'),
-      SettingModel('icon_setting_quick.png', '快速换卷', '开启后可直接切换胶卷', 'kQuick'),
-    ],
-    [
-      SectionModel(),
-      SettingModel('icon_setting_about.png', '关于', null, 'kAbout'),
-      SettingModel('icon_setting_feedback.png', '意见反馈', null, 'kFeedbook'),
-      SectionModel(),
-      FootModel(),
-    ],
-  ];
   _ListState createState() {
-    return _ListState(dataSource);
+    // List<List> _dataSource = [
+    //   [
+    //     HeaderModel(),
+    //     SectionModel(),
+    //     SettingModel('icon_setting_date.png', '照片日期', null, 'kDate'),
+    //     SettingModel('icon_setting_save.png', '默认保存到本地', null, 'kSave'),
+    //     SettingModel('icon_setting_quick.png', '快速换卷', '开启后可直接切换胶卷', 'kQuick'),
+    //   ],
+    //   [
+    //     SectionModel(),
+    //     SettingModel('icon_setting_about.png', '关于', null, 'kAbout'),
+    //     SettingModel('icon_setting_feedback.png', '意见反馈', null, 'kFeedbook'),
+    //     SectionModel(),
+    //     FootModel(),
+    //   ],
+    // ];
+
+    // return _ListState(_dataSource);
+
+    return _ListState();
   }
 }
 
 class _ListState extends State {
-  List<List> dataSource;
-  // final Set <String> _saved = new Set<String>();
+  // List<List> dataSource;
 
-  _ListState(List<List> dataSource) {
-    this.dataSource = dataSource;
-  }
+  // _ListState(List<List> dataSource) {
+  //   this.dataSource = dataSource;
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -113,8 +176,36 @@ class _ListState extends State {
                 fit: BoxFit.fill),
           ),
         ),
-
         _buildList(),
+
+        // Consumer<CategoryState>(
+        //   builder: (context, categoryState, child) {
+        //     return ListView.builder(
+        //       scrollDirection: Axis.vertical,
+        //       itemCount: categoryState.dataSource.length,
+        //       itemBuilder: (context, section) {
+        //         return ListView.builder(
+        //           shrinkWrap: true, // 解决无线高度
+        //           physics: new NeverScrollableScrollPhysics(), // 禁用滑动事件
+        //           padding: EdgeInsets.all(0),
+        //           itemCount: categoryState.dataSource[section].length,
+        //           itemBuilder: (context, index) {
+        //             var model = categoryState.dataSource[section][index];
+        //             if (model is HeaderModel) {
+        //               return _buildHeader();
+        //             } else if (model is SectionModel) {
+        //               return _buildSection();
+        //             } else if (model is FootModel) {
+        //               return _buildFoot();
+        //             } else {
+        //               return _buildRow(model, section, index);
+        //             }
+        //           },
+        //         );
+        //       },
+        //     );
+        //   },
+        // )
       ],
     );
 
@@ -127,30 +218,116 @@ class _ListState extends State {
   }
 
   Widget _buildList() {
-    return ListView.builder(
-      scrollDirection: Axis.vertical,
-      itemCount: dataSource.length,
-      itemBuilder: (context, section) {
-        return ListView.builder(
-          shrinkWrap: true, // 解决无线高度
-          physics: new NeverScrollableScrollPhysics(), // 禁用滑动事件
-          padding: EdgeInsets.all(0),
-          itemCount: dataSource[section].length,
-          itemBuilder: (context, index) {
-            var model = dataSource[section][index];
-            if (model is HeaderModel) {
-              return _buildHeader();
-            } else if (model is SectionModel) {
-              return _buildSection();
-            } else if (model is FootModel) {
-              return _buildFoot();
-            } else {
-              return _buildRow(model, section, index);
-            }
-          },
-        );
-      },
-    );
+    // Future.delayed(const Duration(milliseconds: 500), () {
+    //   for (List list in CategoryState().dataSource) {
+    //     for (var model in list) {
+    //       if (model is SettingModel) {
+    //         Future<bool> store = getStore(model);
+    //         store.then((bool isOn) {
+    //           // setState(() {
+    //           //   model.isOn = isOn != null ? isOn : false;
+    //           // });
+
+    //           bool on = isOn != null ? isOn : false;
+    //           print('oooooo' + on.toString());
+    //           Provider.of<CategoryState>(context, listen: false)
+    //               .changeIsOn(model, on);
+    //         });
+    //       }
+    //     }
+    //   }
+
+    // setState(() {
+    //   // Here you can write your code for open new view
+    // });
+    // });
+
+    // getStore(SettingModel model) async {
+    //   SharedPreferences prefs = await SharedPreferences.getInstance();
+    //   return await prefs.getBool(model.id);
+    // }
+
+    // for (List list in categoryState.dataSource) {
+    //   for (var model in list) {
+    //     if (model is SettingModel) {
+    //       Future<bool> store = getStore(model);
+    //       store.then((bool isOn) {
+    //         setState(() {
+    //           model.isOn = isOn != null ? isOn : false;
+    //           print('oooooo' + model.isOn.toString());
+    //         });
+
+    //         // bool on = isOn != null ? isOn : false;
+    //         // print('oooooo' + on.toString());
+    //         // Provider.of<CategoryState>(context, listen: false)
+    //         //     .changeIsOn(model, on);
+    //       });
+    //     }
+    //   }
+    // }
+
+    // Future<bool> store = getStore(model);
+    // store.then((bool isOn) {
+    //   setState(() {
+    //     model.isOn = isOn != null ? isOn : false;
+    //   });
+
+    //   bool on = isOn != null ? isOn : false;
+    //   print('oooooo' + on.toString());
+    //   // Provider.of<CategoryState>(context, listen: false)
+    //   //     .changeIsOn(model, on);
+    // });
+
+    return Consumer<CategoryState>(builder: (context, categoryState, child) {
+      return ListView.builder(
+        scrollDirection: Axis.vertical,
+        itemCount: categoryState.dataSource.length,
+        itemBuilder: (context, section) {
+          return ListView.builder(
+            shrinkWrap: true, // 解决无线高度
+            physics: new NeverScrollableScrollPhysics(), // 禁用滑动事件
+            padding: EdgeInsets.all(0),
+            itemCount: categoryState.dataSource[section].length,
+            itemBuilder: (context, index) {
+              var model = categoryState.dataSource[section][index];
+              if (model is HeaderModel) {
+                return _buildHeader();
+              } else if (model is SectionModel) {
+                return _buildSection();
+              } else if (model is FootModel) {
+                return _buildFoot();
+              } else {
+                return _buildRow(model, section, index);
+              }
+            },
+          );
+        },
+      );
+    });
+    // return ListView.builder(
+    //   scrollDirection: Axis.vertical,
+    //   itemCount: dataSource.length,
+    //   itemBuilder: (context, section) {
+    //     return ListView.builder(
+    //       shrinkWrap: true, // 解决无线高度
+    //       physics: new NeverScrollableScrollPhysics(), // 禁用滑动事件
+    //       padding: EdgeInsets.all(0),
+    //       itemCount: dataSource[section].length,
+    //       itemBuilder: (context, index) {
+    //         var model = dataSource[section][index];
+    //         if (model is HeaderModel) {
+    //           return _buildHeader();
+    //         } else if (model is SectionModel) {
+    //           return _buildSection();
+    //         } else if (model is FootModel) {
+    //           return _buildFoot();
+    //         } else {
+    //           return _buildRow(model, section, index);
+    //         }
+    //       },
+    //     );
+    //   },
+    // );
   }
 
   Widget _buildHeader() {
@@ -254,18 +431,6 @@ class _ListState extends State {
       await prefs.setBool(model.id, model.isOn);
     }
 
-    getStore(SettingModel model) async {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      return await prefs.getBool(model.id);
-    }
-
-    Future<bool> store = getStore(model);
-    store.then((bool isOn) {
-      setState(() {
-        model.isOn = isOn != null ? isOn : false;
-      });
-    });
-
     return Container(
       height: 60,
       child: Row(
@@ -322,10 +487,14 @@ class _ListState extends State {
               height: 60,
               child: FlatButton(
                   onPressed: () {
-                    setState(() {
-                      model.isOn = true;
-                      saveStore(model);
-                    });
+                    Provider.of<CategoryState>(context, listen: false)
+                        .changeIsOn(model, true);
+                    saveStore(model);
+
+                    // setState(() {
+                    //   model.isOn = true;
+                    //   saveStore(model);
+                    // });
                   },
                   child: Text("开",
                       style: model.isOn
@@ -339,10 +508,14 @@ class _ListState extends State {
               height: 60,
               child: FlatButton(
                   onPressed: () {
-                    setState(() {
-                      model.isOn = false;
-                      saveStore(model);
-                    });
+                    Provider.of<CategoryState>(context, listen: false)
+                        .changeIsOn(model, false);
+                    saveStore(model);
+
+                    // setState(() {
+                    //   model.isOn = false;
+                    //   saveStore(model);
+                    // });
                   },
                   child: Text("关",
                       style: model.isOn
